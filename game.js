@@ -10,6 +10,8 @@ class Game extends Player {
 	/**@type {number} */ #cellDimension;
 	/**@type {number} */ totalNumOfRows;
 	/**@type {number} */ totalGridCols = 10;
+	/**@type {number} */ gameScore = 0;
+
 	/**
 	 * @description Determine if the game is running or not
 	 * @type {boolean}
@@ -23,6 +25,9 @@ class Game extends Player {
 
 	/** @type {Array<Array<{row: number, col: number, obstacle: string}>>} */ #fallingObstacles =
 		[];
+
+	/** @type {Set<string>} */ #rowsSeenSet = new Set();
+
 	constructor() {
 		super();
 		this.#canvasDocument = document.getElementById("game-canvas");
@@ -180,7 +185,7 @@ class Game extends Player {
 		this.isRunning = true;
 		this.intervalId = setInterval(() => {
 			this.#moveObstacles();
-		}, 2000);
+		}, 1000);
 	}
 
 	/**
@@ -203,6 +208,7 @@ class Game extends Player {
 		const totalNumOfObstacles = this.#generateObstaclesNumberPerRow();
 		const alreadyTakenPosition = new Set();
 		const obstaclePosition = [];
+		const obstacleRowId = crypto.randomUUID();
 		let count = 0;
 
 		while (count < totalNumOfObstacles) {
@@ -214,6 +220,7 @@ class Game extends Player {
 				const obstacleIdx = Math.floor(Math.random() * this.#obstacles.length);
 
 				obstaclePosition.push({
+					obstacleRowId,
 					row: this.totalNumOfRows,
 					col,
 					obstacle: this.#obstacles[obstacleIdx],
@@ -273,23 +280,51 @@ class Game extends Player {
 	}
 
 	/**
+	 * Handles collision detection and scoring for a single obstacle
+	 * @private
+	 * @param {{row: number, col: number, obstacleRowId: string, obstacle: string}} item - The obstacle to check
+	 * @returns {boolean} - Returns true if game should stop, false to continue
+	 */
+	#handleObstacleCollision(item) {
+		if (item.row !== this.playerPosition.row) {
+			return false;
+		}
+
+		// Check for direct collision with player
+		if (item.col === this.playerPosition.col) {
+			this.isRunning = false;
+			clearInterval(this.intervalId);
+			this.updateGameStatus();
+			return true;
+		}
+
+		// Update score if row hasn't been counted yet
+		if (!this.#rowsSeenSet.has(item.obstacleRowId) && this.isRunning) {
+			this.#rowsSeenSet.add(item.obstacleRowId);
+			this.gameScore += 1;
+			this.updateGameScore();
+		}
+
+		return false;
+	}
+
+	/**
 	 * Checks if the player has contacted an obstacle
 	 * @description Iterates through falling obstacles to check for player contact
 	 * @returns {void}
 	 */
 	playerContactedObstacle() {
-		this.#fallingObstacles.forEach((obstacle) => {
-			obstacle.forEach((item) => {
-				if (item.row === this.playerPosition.row && item.col === this.playerPosition.col) {
-					// Stop Game from running
-					this.isRunning = false;
-					// Stop Game from running
-					clearInterval(this.intervalId);
-					// Update Game Status
-					this.updateGameStatus();
+		for (let i = 0; i < this.#fallingObstacles.length; i++) {
+			const obstacleRow = this.#fallingObstacles[i];
+
+			for (let j = 0; j < obstacleRow.length; j++) {
+				const item = obstacleRow[j];
+				const collided = this.#handleObstacleCollision(item);
+				if (collided) {
+					break;
 				}
-			});
-		});
+			}
+		}
 	}
 
 	/**
@@ -301,6 +336,17 @@ class Game extends Player {
 	updateGameStatus() {
 		const gameStatusText = document.getElementById("game-status-text");
 		gameStatusText.textContent = this.isRunning ? "Running" : "Game Over";
+	}
+
+	/**
+	 * Updates the game score displayed in the DOM
+	 * @private
+	 * @description Changes the text content of the game score element
+	 * @returns {void}
+	 */
+	updateGameScore() {
+		const gameScoreText = document.getElementById("game-score");
+		gameScoreText.textContent = this.gameScore;
 	}
 	// --- END OF CLASS ---
 }
