@@ -7,9 +7,10 @@ class Game extends Player {
 	/**@type {HTMLCanvasElement} */ #canvasDocument;
 	/**@type {number} */ #cellDimension;
 	/**@type {number} */ totalNumOfRows;
+	/**@type {number} */ totalGridCols = 10;
 
 	/** @type {Array<Array<{row: number, col: number}>>} */ #canvasGrid = [];
-
+	/** @type {[]string} */ #obstacles = ["🪨", "🌲", "💣"];
 	constructor() {
 		super();
 		this.#canvasDocument = document.getElementById("game-canvas");
@@ -27,7 +28,7 @@ class Game extends Player {
 	}
 
 	#generateGrid() {
-		this.#cellDimension = this.#canvasWidth / 10; // Dynamically generate this number to get cell width base on the canvas width. And there should be ten cols in a row
+		this.#cellDimension = this.#canvasWidth / this.totalGridCols; // Dynamically generate this number to get cell width base on the canvas width. And there should be ten cols in a row
 		this.totalNumOfRows = Math.floor(this.#canvasHeight / this.#cellDimension);
 
 		for (let row = 0; row < this.totalNumOfRows; row += 1) {
@@ -54,8 +55,8 @@ class Game extends Player {
 				context.fillRect(
 					col * this.#cellDimension,
 					row * this.#cellDimension,
-					this.#cellDimension * 10,
-					this.#cellDimension * 10
+					this.#cellDimension * this.totalGridCols,
+					this.#cellDimension * this.totalGridCols
 				);
 				context.strokeRect(
 					col * this.#cellDimension,
@@ -67,6 +68,7 @@ class Game extends Player {
 		}
 
 		this.placePlayer();
+		this.placeObstacleOnGrid();
 	}
 
 	/**
@@ -102,7 +104,6 @@ class Game extends Player {
 
 	removePlayerFromPrevPosition = ({ row, col }) => {
 		const context = this.#canvasDocument.getContext("2d");
-		const { x, y } = this.calculatePlayerPosition(row, col);
 
 		context.clearRect(
 			col * this.#cellDimension,
@@ -120,6 +121,55 @@ class Game extends Player {
 		this.#generateGrid();
 		this.#drawGridLines();
 	}
+
+	#generateObstaclesNumberPerRow() {
+		return Math.floor(Math.random() * 4) + 1;
+	}
+
+	generateObstaclePosition() {
+		const totalNumOfObstacles = this.#generateObstaclesNumberPerRow();
+		const alreadyTakenPosition = new Set();
+		const obstaclePosition = [];
+		let count = 0;
+
+		while (count < totalNumOfObstacles) {
+			const col = Math.floor(Math.random() * this.totalGridCols) + 1;
+			if (!alreadyTakenPosition.has(col)) {
+				alreadyTakenPosition.add(col);
+
+				const obstacleIdx = Math.floor(Math.random() * this.#obstacles.length);
+
+				obstaclePosition.push({
+					row: 10,
+					col,
+					obstacle: this.#obstacles[obstacleIdx],
+				});
+				count += 1;
+			}
+		}
+		return obstaclePosition;
+	}
+
+	placeObstacleOnGrid() {
+		const context = this.#canvasDocument.getContext("2d");
+		const obstacles = this.generateObstaclePosition();
+
+		for (let i = 0; i < obstacles.length; i += 1) {
+			const currObstacle = obstacles[i];
+
+			const { col, obstacle } = currObstacle;
+			const { x, y } = this.calculatePlayerPosition(this.totalNumOfRows, col);
+
+			// Add these font settings
+			context.font = `${this.#cellDimension * 0.8}px Arial`; // Scale font to cell size
+			context.fillStyle = "black"; // Set text color
+			context.textAlign = "center";
+			context.textBaseline = "middle";
+
+			context.fillText(obstacle, x, y);
+		}
+	}
+	// --- END OF CLASS ---
 }
 
 const game = new Game();
