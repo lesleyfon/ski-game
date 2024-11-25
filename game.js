@@ -1,4 +1,15 @@
 import { Player } from "./player.js";
+class GameState {
+	constructor() {
+		/**
+		 * @description Determine if the game is running or not
+		 * @type {boolean}
+		 */
+		this.isRunning = false;
+		/**@type {number} */ this.score = 0;
+		/**@type {number | null} */ this.intervalId = null;
+	}
+}
 
 class Game extends Player {
 	/**@type {number} */ #canvasWidth;
@@ -10,18 +21,11 @@ class Game extends Player {
 	/**@type {number} */ #cellDimension;
 	/**@type {number} */ totalNumOfRows;
 	/**@type {number} */ totalGridCols = 10;
-	/**@type {number} */ gameScore = 0;
 
-	/**
-	 * @description Determine if the game is running or not
-	 * @type {boolean}
-	 */
-	isRunning = false;
-
-	/** @type {number | null} */ intervalId = null;
+	/**@type {GameState} */ gameState = new GameState();
 
 	/** @type {Array<Array<{row: number, col: number}>>} */ #canvasGrid = [];
-	/** @type {[]string} */ #obstacles = ["🪨", "🌲", "💣"];
+	/** @type {[]string} */ #obstacles = ["🪨", "🌲", "💣", "🦬"];
 
 	/** @type {Array<Array<{row: number, col: number, obstacle: string}>>} */ #fallingObstacles =
 		[];
@@ -182,10 +186,10 @@ class Game extends Player {
 		this.placeObstacleOnGrid();
 
 		// Start the game loop
-		this.isRunning = true;
-		this.intervalId = setInterval(() => {
+		this.gameState.isRunning = true;
+		this.gameState.intervalId = setInterval(() => {
 			this.#moveObstacles();
-		}, 1000);
+		}, 2000);
 	}
 
 	/**
@@ -292,16 +296,16 @@ class Game extends Player {
 
 		// Check for direct collision with player
 		if (item.col === this.playerPosition.col) {
-			this.isRunning = false;
-			clearInterval(this.intervalId);
+			this.gameState.isRunning = false;
+			clearInterval(this.gameState.intervalId);
 			this.updateGameStatus();
 			return true;
 		}
 
 		// Update score if row hasn't been counted yet
-		if (!this.#rowsSeenSet.has(item.obstacleRowId) && this.isRunning) {
+		if (!this.#rowsSeenSet.has(item.obstacleRowId) && this.gameState.isRunning) {
 			this.#rowsSeenSet.add(item.obstacleRowId);
-			this.gameScore += 1;
+			this.gameState.score += 1;
 			this.updateGameScore();
 		}
 
@@ -335,7 +339,7 @@ class Game extends Player {
 	 */
 	updateGameStatus() {
 		const gameStatusText = document.getElementById("game-status-text");
-		gameStatusText.textContent = this.isRunning ? "Running" : "Game Over";
+		gameStatusText.textContent = this.gameState.isRunning ? "Running" : "Game Over";
 	}
 
 	/**
@@ -346,7 +350,7 @@ class Game extends Player {
 	 */
 	updateGameScore() {
 		const gameScoreText = document.getElementById("game-score");
-		gameScoreText.textContent = this.gameScore;
+		gameScoreText.textContent = this.gameState.score;
 	}
 	// --- END OF CLASS ---
 }
@@ -356,11 +360,12 @@ const game = new Game();
 game.startGame();
 
 document.addEventListener("keydown", (event) => {
-	if (game.isRunning) {
+	if (game.gameState.isRunning) {
 		game.movePlayer(event, {
 			totalNumOfRows: game.totalNumOfRows,
 			placePlayer: game.placePlayer,
 			removePlayerFromPrevPosition: game.removeItemFromPrevPosition,
+			totalGridCols: game.totalGridCols - 1,
 		});
 
 		game.playerContactedObstacle();
