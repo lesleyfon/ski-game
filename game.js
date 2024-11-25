@@ -16,7 +16,7 @@ class Game extends Player {
 	 */
 	isRunning = false;
 
-	intervalId = null;
+	/** @type {number | null} */ intervalId = null;
 
 	/** @type {Array<Array<{row: number, col: number}>>} */ #canvasGrid = [];
 	/** @type {[]string} */ #obstacles = ["🪨", "🌲", "💣"];
@@ -33,13 +33,23 @@ class Game extends Player {
 	}
 
 	/**
-	 * The function sets the width and height of a canvas element to match the page dimensions.
+	 * Sets the canvas dimensions based on predefined width and height values
+	 * @private
+	 * @description Initializes the game canvas with dimensions calculated from window size and preset width
+	 * @throws {TypeError} If canvas element is not found in the DOM
+	 * @returns {void}
 	 */
 	#setCanvasWidthAndHeight() {
 		this.#canvasDocument.height = this.#canvasHeight;
 		this.#canvasDocument.width = this.#canvasWidth;
 	}
 
+	/**
+	 * Generates a grid based on the canvas dimensions
+	 * @private
+	 * @description Creates a grid of cells based on the canvas width and height
+	 * @returns {void}
+	 */
 	#generateGrid() {
 		this.#cellDimension = this.#canvasWidth / this.totalGridCols; // Dynamically generate this number to get cell width base on the canvas width. And there should be ten cols in a row
 		this.totalNumOfRows = Math.floor(this.#canvasHeight / this.#cellDimension);
@@ -53,7 +63,12 @@ class Game extends Player {
 		}
 	}
 
-	// TODO: DELETE ME WHEN everything is complete
+	/**
+	 * Draws grid lines on the canvas
+	 * @private
+	 * @description Draws grid lines to visualize the grid structure
+	 * @returns {void}
+	 */
 	#drawGridLines() {
 		this.#context.clearRect(0, 0, this.#canvasWidth, this.#canvasHeight);
 		this.#context.fillStyle = "white";
@@ -77,16 +92,17 @@ class Game extends Player {
 				);
 			}
 		}
-
-		this.placePlayer();
-		this.placeObstacleOnGrid();
 	}
 
 	/**
-	 *
-	 * @returns {{x:number, y:number}} return the players positions on the grid
+	 * Calculates the coordinates position of an item on the grid
+	 * @private
+	 * @description Computes the center coordinates of a cell based on its row and column indices
+	 * @param {number} row - The row index of the cell
+	 * @param {number} col - The column index of the cell
+	 * @returns {{x:number, y:number}} - An object containing the x and y coordinates
 	 */
-	calculatePlayerPosition(row, col) {
+	#calculateCoordinatesPosition(row, col) {
 		const x = col * this.#cellDimension + this.#cellDimension / 2;
 		const y = row * this.#cellDimension + this.#cellDimension / 2;
 
@@ -96,18 +112,29 @@ class Game extends Player {
 		};
 	}
 
+	/**
+	 * Places the player on the grid
+	 * @description Calculates and places the player on the grid based on their current position
+	 * @returns {void}
+	 */
 	placePlayer = () => {
-		const { x, y } = this.calculatePlayerPosition(
+		const { x, y } = this.#calculateCoordinatesPosition(
 			this.playerPosition.row,
 			this.playerPosition.col
 		);
 
 		// Add these font settings
-		this.placeItemToGrid(this.#cellDimension);
+		this.#placeItemToGrid(this.#cellDimension);
 
 		this.#context.fillText(this.playerCharacter, x, y);
 	};
 
+	/**
+	 * Removes an item from its previous position on the grid
+	 * @description Clears a cell by drawing a rectangle over it
+	 * @param {{row: number, col: number}} dimensions - The dimensions of the cell
+	 * @returns {void}
+	 */
 	removeItemFromPrevPosition = ({ row, col }) => {
 		this.#context.clearRect(
 			col * this.#cellDimension,
@@ -117,29 +144,61 @@ class Game extends Player {
 		);
 	};
 
-	placeItemToGrid(dimensions) {
+	/**
+	 * Sets the font properties for text rendering
+	 * @private
+	 * @description Configures the canvas context for text rendering with specified dimensions
+	 * @param {number} dimensions - The dimensions of the cell
+	 * @returns {void}
+	 */
+	#placeItemToGrid(dimensions) {
 		this.#context.font = `${dimensions * 0.8}px Arial`; // Scale font to cell size: ;
 		this.#context.textAlign = "center";
 		this.#context.textBaseline = "middle";
 	}
 
+	/**
+	 * Initializes the game by setting up the canvas, grid, and placing the player and obstacles
+	 * @description Sets up the game environment and starts the game loop
+	 * @returns {void}
+	 */
 	startGame() {
 		// Set Canvas height
 		this.#setCanvasWidthAndHeight();
 
 		// Create game grid
 		this.#generateGrid();
-		this.#drawGridLines();
+
+		// Uncomment this to draw the grid lines
+		// this.#drawGridLines();
+
+		// Place player and obstacles on the grid
+		this.placePlayer();
+		this.placeObstacleOnGrid();
+
+		// Start the game loop
 		this.isRunning = true;
 		this.intervalId = setInterval(() => {
-			this.moveObstacles();
+			this.#moveObstacles();
 		}, 2000);
 	}
 
+	/**
+	 * Generates the number of obstacles per row
+	 * @private
+	 * @description Randomly determines the number of obstacles to be placed in a row
+	 * @returns {number} - The number of obstacles to be placed in a row
+	 */
 	#generateObstaclesNumberPerRow() {
 		return Math.floor(Math.random() * 4) + 1;
 	}
 
+	/**
+	 * Generates the positions of obstacles on the grid
+	 * @private
+	 * @description Determines obstacle positions and ensures no overlap
+	 * @returns {Array<{row: number, col: number, obstacle: string}>} - An array of obstacle positions and types
+	 */
 	generateObstaclePosition() {
 		const totalNumOfObstacles = this.#generateObstaclesNumberPerRow();
 		const alreadyTakenPosition = new Set();
@@ -165,19 +224,31 @@ class Game extends Player {
 		return obstaclePosition;
 	}
 
+	/**
+	 * Places obstacles on the grid
+	 * @private
+	 * @description Generates obstacle positions and places them on the grid
+	 * @returns {void}
+	 */
 	placeObstacleOnGrid() {
 		const obstacles = this.generateObstaclePosition();
 
-		this.placeItemToGrid(this.#cellDimension);
+		this.#placeItemToGrid(this.#cellDimension);
 
 		obstacles.forEach(({ col, obstacle }) => {
-			const { x, y } = this.calculatePlayerPosition(this.totalNumOfRows, col);
+			const { x, y } = this.#calculateCoordinatesPosition(this.totalNumOfRows, col);
 			this.#context.fillText(obstacle, x, y);
 		});
 		this.#fallingObstacles.push(obstacles);
 	}
 
-	moveObstacles() {
+	/**
+	 * Moves obstacles down the grid
+	 * @private
+	 * @description Updates obstacle positions and redraws them on the grid
+	 * @returns {void}
+	 */
+	#moveObstacles() {
 		this.#fallingObstacles.forEach((obstacle) => {
 			obstacle.forEach((item) => {
 				this.removeItemFromPrevPosition({
@@ -187,19 +258,25 @@ class Game extends Player {
 
 				item.row = item.row - 1;
 
-				const { x, y } = this.calculatePlayerPosition(item.row, item.col);
+				const { x, y } = this.#calculateCoordinatesPosition(item.row, item.col);
 
 				// Add these font settings
-				this.placeItemToGrid(this.#cellDimension);
+				this.#placeItemToGrid(this.#cellDimension);
 
 				this.#context.fillText(item.obstacle, x, y);
 			});
 		});
+
 		// After moving all obstacles, place new Obstacles to the grid
 		this.placeObstacleOnGrid();
 		this.playerContactedObstacle();
 	}
 
+	/**
+	 * Checks if the player has contacted an obstacle
+	 * @description Iterates through falling obstacles to check for player contact
+	 * @returns {void}
+	 */
 	playerContactedObstacle() {
 		this.#fallingObstacles.forEach((obstacle) => {
 			obstacle.forEach((item) => {
@@ -215,6 +292,12 @@ class Game extends Player {
 		});
 	}
 
+	/**
+	 * Updates the game status displayed in the DOM
+	 * @private
+	 * @description Changes the text content of the game status element
+	 * @returns {void}
+	 */
 	updateGameStatus() {
 		const gameStatusText = document.getElementById("game-status-text");
 		gameStatusText.textContent = this.isRunning ? "Running" : "Game Over";
