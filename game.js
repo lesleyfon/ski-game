@@ -1,4 +1,6 @@
-class Game {
+import { Player } from "./player.js";
+
+class Game extends Player {
 	/**@type {number} */ #canvasWidth;
 	/**@type {number} */ #canvasHeight;
 
@@ -9,6 +11,7 @@ class Game {
 	/** @type {Array<Array<{row: number, col: number}>>} */ #canvasGrid = [];
 
 	constructor() {
+		super();
 		this.#canvasDocument = document.getElementById("game-canvas");
 		const fullPageWidth = window.innerHeight;
 		this.#canvasWidth = 700;
@@ -63,8 +66,36 @@ class Game {
 				);
 			}
 		}
+
+		this.#placePlayer();
 	}
 
+	/**
+	 *
+	 * @returns {{x:number, y:number}} return the players positions on the grid
+	 */
+	calculatePlayerPosition() {
+		const x = this.playerPosition.col * this.#cellDimension + this.#cellDimension / 2;
+		const y = this.playerPosition.row * this.#cellDimension + this.#cellDimension / 2;
+
+		return {
+			x,
+			y,
+		};
+	}
+
+	#placePlayer() {
+		const context = this.#canvasDocument.getContext("2d");
+		const { x, y } = this.calculatePlayerPosition();
+
+		// Add these font settings
+		context.font = `${this.#cellDimension * 0.8}px Arial`; // Scale font to cell size
+		context.fillStyle = "black"; // Set text color
+		context.textAlign = "center";
+		context.textBaseline = "middle";
+
+		context.fillText(this.playerCharacter, x, y);
+	}
 	startGame() {
 		// Set Canvas height
 		this.#setCanvasWidthAndHeight();
