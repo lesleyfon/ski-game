@@ -129,9 +129,9 @@ class Game extends Player {
 		this.#generateGrid();
 		this.#drawGridLines();
 
-		setInterval(() => {
-			this.moveObstacles();
-		}, 2000);
+		// setInterval(() => {
+		this.moveObstacles();
+		// }, 2000);
 	}
 
 	#generateObstaclesNumberPerRow() {
@@ -203,7 +203,7 @@ const game = new Game();
 
 game.startGame();
 
-document.addEventListener("keyup", (event) => {
+document.addEventListener("keydown", (event) => {
 	game.movePlayer(event, {
 		totalNumOfRows: game.totalNumOfRows,
 		placePlayer: game.placePlayer,
