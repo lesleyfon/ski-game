@@ -6,7 +6,7 @@ class Game extends Player {
 
 	/**@type {HTMLCanvasElement} */ #canvasDocument;
 	/**@type {number} */ #cellDimension;
-	/**@type {number} */ #totalNumOfRows;
+	/**@type {number} */ totalNumOfRows;
 
 	/** @type {Array<Array<{row: number, col: number}>>} */ #canvasGrid = [];
 
@@ -28,9 +28,9 @@ class Game extends Player {
 
 	#generateGrid() {
 		this.#cellDimension = this.#canvasWidth / 10; // Dynamically generate this number to get cell width base on the canvas width. And there should be ten cols in a row
-		this.#totalNumOfRows = Math.floor(this.#canvasHeight / this.#cellDimension);
+		this.totalNumOfRows = Math.floor(this.#canvasHeight / this.#cellDimension);
 
-		for (let row = 0; row < this.#totalNumOfRows; row += 1) {
+		for (let row = 0; row < this.totalNumOfRows; row += 1) {
 			const currRow = [];
 			for (let col = 0; col < this.#cellDimension; col += 1) {
 				currRow.push({ row, col });
@@ -44,11 +44,10 @@ class Game extends Player {
 		const context = this.#canvasDocument.getContext("2d");
 		context.clearRect(0, 0, this.#canvasWidth, this.#canvasHeight);
 
-		for (let row = 0; row < this.#totalNumOfRows; row += 1) {
+		for (let row = 0; row < this.totalNumOfRows; row += 1) {
 			for (let col = 0; col < this.#cellDimension; col += 1) {
 				context.fillStyle = "white";
 				context.stroke = "#000000";
-				context.strokeStyle = "red";
 				context.lineWidth = 0.5;
 
 				/**@description  draws a rectangle that is filled according to the current fill style*/
@@ -67,7 +66,7 @@ class Game extends Player {
 			}
 		}
 
-		this.#placePlayer();
+		this.placePlayer();
 	}
 
 	/**
@@ -84,7 +83,7 @@ class Game extends Player {
 		};
 	}
 
-	#placePlayer() {
+	placePlayer = () => {
 		const context = this.#canvasDocument.getContext("2d");
 
 		const { x, y } = this.calculatePlayerPosition(
@@ -99,9 +98,9 @@ class Game extends Player {
 		context.textBaseline = "middle";
 
 		context.fillText(this.playerCharacter, x, y);
-	}
+	};
 
-	removePlayerFromPrevPosition({ row, col }) {
+	removePlayerFromPrevPosition = ({ row, col }) => {
 		const context = this.#canvasDocument.getContext("2d");
 		const { x, y } = this.calculatePlayerPosition(row, col);
 
@@ -111,58 +110,8 @@ class Game extends Player {
 			this.#cellDimension,
 			this.#cellDimension
 		);
-
-		context.fillStyle = "white";
-		context.stroke = "#000000";
-		context.strokeStyle = "red";
-		context.lineWidth = 0.5;
-	}
-
-	/**
-	 * @description Using arrow function so that the `this` refers to the class
-	 * @param {KeyboardEvent} event
-	 */
-	movePlayer = (event) => {
-		// TODO: Ideally, i would love for this to be in the player class;
-		const directions = {
-			ArrowDown: "ArrowDown",
-			ArrowUp: "ArrowUp",
-			ArrowRight: "ArrowRight",
-			ArrowLeft: "ArrowLeft",
-		};
-
-		if (event.key in directions) {
-			this.removePlayerFromPrevPosition({
-				...this.playerPosition,
-			});
-		}
-
-		switch (event.key) {
-			case "ArrowDown":
-				if (this.playerPosition.row < this.#totalNumOfRows - 1) {
-					this.playerPosition.row += 1;
-				}
-				break;
-			case "ArrowUp":
-				if (this.playerPosition.row > 0) {
-					this.playerPosition.row -= 1;
-				}
-				break;
-			case "ArrowRight":
-				const colCount = 9;
-				if (this.playerPosition.col < colCount) {
-					console.log(this.playerPosition.col, colCount);
-					this.playerPosition.col += 1;
-				}
-				break;
-			case "ArrowLeft":
-				if (this.playerPosition.col > 0) {
-					this.playerPosition.col -= 1;
-				}
-		}
-
-		this.#placePlayer();
 	};
+
 	startGame() {
 		// Set Canvas height
 		this.#setCanvasWidthAndHeight();
@@ -177,4 +126,10 @@ const game = new Game();
 
 game.startGame();
 
-document.addEventListener("keyup", game.movePlayer);
+document.addEventListener("keyup", (event) => {
+	game.movePlayer(event, {
+		totalNumOfRows: game.totalNumOfRows,
+		placePlayer: game.placePlayer,
+		removePlayerFromPrevPosition: game.removePlayerFromPrevPosition,
+	});
+});
