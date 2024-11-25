@@ -197,20 +197,28 @@ class Game extends Player {
 		});
 		// After moving all obstacles, place new Obstacles to the grid
 		this.placeObstacleOnGrid();
+		this.playerContactedObstacle();
 	}
 
 	playerContactedObstacle() {
 		this.#fallingObstacles.forEach((obstacle) => {
 			obstacle.forEach((item) => {
 				if (item.row === this.playerPosition.row && item.col === this.playerPosition.col) {
+					// Stop Game from running
 					this.isRunning = false;
 					// Stop Game from running
 					clearInterval(this.intervalId);
+					// Update Game Status
+					this.updateGameStatus();
 				}
 			});
 		});
 	}
 
+	updateGameStatus() {
+		const gameStatusText = document.getElementById("game-status-text");
+		gameStatusText.textContent = this.isRunning ? "Running" : "Game Over";
+	}
 	// --- END OF CLASS ---
 }
 
@@ -219,10 +227,13 @@ const game = new Game();
 game.startGame();
 
 document.addEventListener("keydown", (event) => {
-	game.movePlayer(event, {
-		totalNumOfRows: game.totalNumOfRows,
-		placePlayer: game.placePlayer,
-		removePlayerFromPrevPosition: game.removeItemFromPrevPosition,
-	});
-	game.playerContactedObstacle();
+	if (game.isRunning) {
+		game.movePlayer(event, {
+			totalNumOfRows: game.totalNumOfRows,
+			placePlayer: game.placePlayer,
+			removePlayerFromPrevPosition: game.removeItemFromPrevPosition,
+		});
+
+		game.playerContactedObstacle();
+	}
 });
