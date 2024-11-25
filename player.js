@@ -7,7 +7,8 @@ export class Player {
 	 * @param {KeyboardEvent} event
 	 */
 	movePlayer = (event, gameProps) => {
-		const { totalNumOfRows, placePlayer, removePlayerFromPrevPosition } = gameProps;
+		const { totalNumOfRows, placePlayer, removePlayerFromPrevPosition, totalGridCols } =
+			gameProps;
 		// TODO: Ideally, i would love for this to be in the player class;
 
 		const MOVEMENT_MAP = {
@@ -20,7 +21,7 @@ export class Player {
 				move: () => (this.playerPosition.row -= 1),
 			},
 			ArrowRight: {
-				isValid: () => this.playerPosition.col < 9,
+				isValid: () => this.playerPosition.col < totalGridCols,
 				move: () => (this.playerPosition.col += 1),
 			},
 			ArrowLeft: {

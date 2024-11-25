@@ -11,14 +11,31 @@ class GameState {
 	}
 }
 
+class CanvasConfig {
+	constructor(width, height) {
+		/**@type {number} */ this.width = width;
+		/**@type {number} */ this.height = height;
+		/**@type {HTMLCanvasElement} */ this.canvasDocument =
+			document.getElementById("game-canvas");
+		/**@type {CanvasRenderingContext2D} */ this.context = this.canvasDocument.getContext("2d");
+		/**@type {number} */ this.cellDimension = null;
+	}
+
+	/**
+	 * Sets the canvas dimensions based on predefined width and height values
+	 * @private
+	 * @description Initializes the game canvas with dimensions calculated from window size and preset width
+	 * @throws {TypeError} If canvas element is not found in the DOM
+	 * @returns {void}
+	 */
+	initialize() {
+		this.canvasDocument.width = this.width;
+		this.canvasDocument.height = this.height;
+	}
+}
+
 class Game extends Player {
-	/**@type {number} */ #canvasWidth;
-	/**@type {number} */ #canvasHeight;
-
-	/**@type {HTMLCanvasElement} */ #canvasDocument;
-	/**@type {CanvasRenderingContext2D} */ #context;
-
-	/**@type {number} */ #cellDimension;
+	/**@type {CanvasConfig} */ canvasConfig;
 	/**@type {number} */ totalNumOfRows;
 	/**@type {number} */ totalGridCols = 10;
 
@@ -34,23 +51,8 @@ class Game extends Player {
 
 	constructor() {
 		super();
-		this.#canvasDocument = document.getElementById("game-canvas");
-		this.#context = this.#canvasDocument.getContext("2d");
-
-		this.#canvasWidth = 700;
-		this.#canvasHeight = window.innerHeight - 200;
-	}
-
-	/**
-	 * Sets the canvas dimensions based on predefined width and height values
-	 * @private
-	 * @description Initializes the game canvas with dimensions calculated from window size and preset width
-	 * @throws {TypeError} If canvas element is not found in the DOM
-	 * @returns {void}
-	 */
-	#setCanvasWidthAndHeight() {
-		this.#canvasDocument.height = this.#canvasHeight;
-		this.#canvasDocument.width = this.#canvasWidth;
+		this.canvasConfig = new CanvasConfig(700, window.innerHeight - 200);
+		this.canvasConfig.initialize();
 	}
 
 	/**
@@ -60,12 +62,14 @@ class Game extends Player {
 	 * @returns {void}
 	 */
 	#generateGrid() {
-		this.#cellDimension = this.#canvasWidth / this.totalGridCols; // Dynamically generate this number to get cell width base on the canvas width. And there should be ten cols in a row
-		this.totalNumOfRows = Math.floor(this.#canvasHeight / this.#cellDimension);
+		this.canvasConfig.cellDimension = this.canvasConfig.width / this.totalGridCols; // Dynamically generate this number to get cell width base on the canvas width. And there should be ten cols in a row
+		this.totalNumOfRows = Math.floor(
+			this.canvasConfig.height / this.canvasConfig.cellDimension
+		);
 
 		for (let row = 0; row < this.totalNumOfRows; row += 1) {
 			const currRow = [];
-			for (let col = 0; col < this.#cellDimension; col += 1) {
+			for (let col = 0; col < this.canvasConfig.cellDimension; col += 1) {
 				currRow.push({ row, col });
 			}
 			this.#canvasGrid.push(currRow);
@@ -79,25 +83,30 @@ class Game extends Player {
 	 * @returns {void}
 	 */
 	#drawGridLines() {
-		this.#context.clearRect(0, 0, this.#canvasWidth, this.#canvasHeight);
-		this.#context.fillStyle = "white";
-		this.#context.stroke = "#000000";
-		this.#context.lineWidth = 0.5;
+		this.canvasConfig.context.clearRect(
+			0,
+			0,
+			this.canvasConfig.width,
+			this.canvasConfig.height
+		);
+		this.canvasConfig.context.fillStyle = "white";
+		this.canvasConfig.context.stroke = "#000000";
+		this.canvasConfig.context.lineWidth = 0.5;
 
 		for (let row = 0; row < this.totalNumOfRows; row += 1) {
-			for (let col = 0; col < this.#cellDimension; col += 1) {
+			for (let col = 0; col < this.canvasConfig.cellDimension; col += 1) {
 				/**@description  draws a rectangle that is filled according to the current fill style*/
-				this.#context.fillRect(
-					col * this.#cellDimension,
-					row * this.#cellDimension,
-					this.#cellDimension * this.totalGridCols,
-					this.#cellDimension * this.totalGridCols
+				this.canvasConfig.context.fillRect(
+					col * this.canvasConfig.cellDimension,
+					row * this.canvasConfig.cellDimension,
+					this.canvasConfig.cellDimension * this.totalGridCols,
+					this.canvasConfig.cellDimension * this.totalGridCols
 				);
-				this.#context.strokeRect(
-					col * this.#cellDimension,
-					row * this.#cellDimension,
-					this.#cellDimension,
-					this.#cellDimension
+				this.canvasConfig.context.strokeRect(
+					col * this.canvasConfig.cellDimension,
+					row * this.canvasConfig.cellDimension,
+					this.canvasConfig.cellDimension,
+					this.canvasConfig.cellDimension
 				);
 			}
 		}
@@ -112,8 +121,8 @@ class Game extends Player {
 	 * @returns {{x:number, y:number}} - An object containing the x and y coordinates
 	 */
 	#calculateCoordinatesPosition(row, col) {
-		const x = col * this.#cellDimension + this.#cellDimension / 2;
-		const y = row * this.#cellDimension + this.#cellDimension / 2;
+		const x = col * this.canvasConfig.cellDimension + this.canvasConfig.cellDimension / 2;
+		const y = row * this.canvasConfig.cellDimension + this.canvasConfig.cellDimension / 2;
 
 		return {
 			x,
@@ -133,9 +142,9 @@ class Game extends Player {
 		);
 
 		// Add these font settings
-		this.#placeItemToGrid(this.#cellDimension);
+		this.#placeItemToGrid(this.canvasConfig.cellDimension);
 
-		this.#context.fillText(this.playerCharacter, x, y);
+		this.canvasConfig.context.fillText(this.playerCharacter, x, y);
 	};
 
 	/**
@@ -145,11 +154,11 @@ class Game extends Player {
 	 * @returns {void}
 	 */
 	removeItemFromPrevPosition = ({ row, col }) => {
-		this.#context.clearRect(
-			col * this.#cellDimension,
-			row * this.#cellDimension,
-			this.#cellDimension,
-			this.#cellDimension
+		this.canvasConfig.context.clearRect(
+			col * this.canvasConfig.cellDimension,
+			row * this.canvasConfig.cellDimension,
+			this.canvasConfig.cellDimension,
+			this.canvasConfig.cellDimension
 		);
 	};
 
@@ -161,9 +170,9 @@ class Game extends Player {
 	 * @returns {void}
 	 */
 	#placeItemToGrid(dimensions) {
-		this.#context.font = `${dimensions * 0.8}px Arial`; // Scale font to cell size: ;
-		this.#context.textAlign = "center";
-		this.#context.textBaseline = "middle";
+		this.canvasConfig.context.font = `${dimensions * 0.8}px Arial`; // Scale font to cell size: ;
+		this.canvasConfig.context.textAlign = "center";
+		this.canvasConfig.context.textBaseline = "middle";
 	}
 
 	/**
@@ -173,7 +182,7 @@ class Game extends Player {
 	 */
 	startGame() {
 		// Set Canvas height
-		this.#setCanvasWidthAndHeight();
+		this.canvasConfig.initialize();
 
 		// Create game grid
 		this.#generateGrid();
@@ -244,11 +253,11 @@ class Game extends Player {
 	placeObstacleOnGrid() {
 		const obstacles = this.generateObstaclePosition();
 
-		this.#placeItemToGrid(this.#cellDimension);
+		this.#placeItemToGrid(this.canvasConfig.cellDimension);
 
 		obstacles.forEach(({ col, obstacle }) => {
 			const { x, y } = this.#calculateCoordinatesPosition(this.totalNumOfRows, col);
-			this.#context.fillText(obstacle, x, y);
+			this.canvasConfig.context.fillText(obstacle, x, y);
 		});
 		this.#fallingObstacles.push(obstacles);
 	}
@@ -272,9 +281,9 @@ class Game extends Player {
 				const { x, y } = this.#calculateCoordinatesPosition(item.row, item.col);
 
 				// Add these font settings
-				this.#placeItemToGrid(this.#cellDimension);
+				this.#placeItemToGrid(this.canvasConfig.cellDimension);
 
-				this.#context.fillText(item.obstacle, x, y);
+				this.canvasConfig.context.fillText(item.obstacle, x, y);
 			});
 		});
 
