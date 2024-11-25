@@ -74,9 +74,9 @@ class Game extends Player {
 	 *
 	 * @returns {{x:number, y:number}} return the players positions on the grid
 	 */
-	calculatePlayerPosition() {
-		const x = this.playerPosition.col * this.#cellDimension + this.#cellDimension / 2;
-		const y = this.playerPosition.row * this.#cellDimension + this.#cellDimension / 2;
+	calculatePlayerPosition(row, col) {
+		const x = col * this.#cellDimension + this.#cellDimension / 2;
+		const y = row * this.#cellDimension + this.#cellDimension / 2;
 
 		return {
 			x,
@@ -86,7 +86,11 @@ class Game extends Player {
 
 	#placePlayer() {
 		const context = this.#canvasDocument.getContext("2d");
-		const { x, y } = this.calculatePlayerPosition();
+
+		const { x, y } = this.calculatePlayerPosition(
+			this.playerPosition.row,
+			this.playerPosition.col
+		);
 
 		// Add these font settings
 		context.font = `${this.#cellDimension * 0.8}px Arial`; // Scale font to cell size
@@ -96,6 +100,69 @@ class Game extends Player {
 
 		context.fillText(this.playerCharacter, x, y);
 	}
+
+	removePlayerFromPrevPosition({ row, col }) {
+		const context = this.#canvasDocument.getContext("2d");
+		const { x, y } = this.calculatePlayerPosition(row, col);
+
+		context.clearRect(
+			col * this.#cellDimension,
+			row * this.#cellDimension,
+			this.#cellDimension,
+			this.#cellDimension
+		);
+
+		context.fillStyle = "white";
+		context.stroke = "#000000";
+		context.strokeStyle = "red";
+		context.lineWidth = 0.5;
+	}
+
+	/**
+	 * @description Using arrow function so that the `this` refers to the class
+	 * @param {KeyboardEvent} event
+	 */
+	movePlayer = (event) => {
+		// TODO: Ideally, i would love for this to be in the player class;
+		const directions = {
+			ArrowDown: "ArrowDown",
+			ArrowUp: "ArrowUp",
+			ArrowRight: "ArrowRight",
+			ArrowLeft: "ArrowLeft",
+		};
+
+		if (event.key in directions) {
+			this.removePlayerFromPrevPosition({
+				...this.playerPosition,
+			});
+		}
+
+		switch (event.key) {
+			case "ArrowDown":
+				if (this.playerPosition.row < this.#totalNumOfRows - 1) {
+					this.playerPosition.row += 1;
+				}
+				break;
+			case "ArrowUp":
+				if (this.playerPosition.row > 0) {
+					this.playerPosition.row -= 1;
+				}
+				break;
+			case "ArrowRight":
+				const colCount = 9;
+				if (this.playerPosition.col < colCount) {
+					console.log(this.playerPosition.col, colCount);
+					this.playerPosition.col += 1;
+				}
+				break;
+			case "ArrowLeft":
+				if (this.playerPosition.col > 0) {
+					this.playerPosition.col -= 1;
+				}
+		}
+
+		this.#placePlayer();
+	};
 	startGame() {
 		// Set Canvas height
 		this.#setCanvasWidthAndHeight();
@@ -109,3 +176,5 @@ class Game extends Player {
 const game = new Game();
 
 game.startGame();
+
+document.addEventListener("keyup", game.movePlayer);
