@@ -16,6 +16,8 @@ class Game extends Player {
 	 */
 	isRunning = false;
 
+	intervalId = null;
+
 	/** @type {Array<Array<{row: number, col: number}>>} */ #canvasGrid = [];
 	/** @type {[]string} */ #obstacles = ["🪨", "🌲", "💣"];
 
@@ -128,10 +130,10 @@ class Game extends Player {
 		// Create game grid
 		this.#generateGrid();
 		this.#drawGridLines();
-
-		// setInterval(() => {
-		this.moveObstacles();
-		// }, 2000);
+		this.isRunning = true;
+		this.intervalId = setInterval(() => {
+			this.moveObstacles();
+		}, 2000);
 	}
 
 	#generateObstaclesNumberPerRow() {
@@ -145,7 +147,8 @@ class Game extends Player {
 		let count = 0;
 
 		while (count < totalNumOfObstacles) {
-			const col = Math.floor(Math.random() * this.totalGridCols) + 1;
+			const col = Math.floor(Math.random() * this.totalGridCols);
+
 			if (!alreadyTakenPosition.has(col)) {
 				alreadyTakenPosition.add(col);
 
@@ -196,6 +199,18 @@ class Game extends Player {
 		this.placeObstacleOnGrid();
 	}
 
+	playerContactedObstacle() {
+		this.#fallingObstacles.forEach((obstacle) => {
+			obstacle.forEach((item) => {
+				if (item.row === this.playerPosition.row && item.col === this.playerPosition.col) {
+					this.isRunning = false;
+					// Stop Game from running
+					clearInterval(this.intervalId);
+				}
+			});
+		});
+	}
+
 	// --- END OF CLASS ---
 }
 
@@ -209,4 +224,5 @@ document.addEventListener("keydown", (event) => {
 		placePlayer: game.placePlayer,
 		removePlayerFromPrevPosition: game.removeItemFromPrevPosition,
 	});
+	game.playerContactedObstacle();
 });
