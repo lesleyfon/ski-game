@@ -12,110 +12,63 @@ class Game extends Player {
 	/** @type {Array<Array<{row: number, col: number}>>} */ #canvasGrid = [];
 	/** @type {[]string} */ #obstacles = ["🪨", "🌲", "💣", "🦬"];
 
-	/** @type {Array<Array<{row: number, col: number, obstacle: string}>>} */ #fallingObstacles =
+	/** @type {Array<{x: number, y: number, col: number, row: number, obstacle: string, obstacleRowId: string}>} */ #fallingObstacles =
 		[];
 	/** @type {Set<string>} */ #rowsSeenSet = new Set();
+
+	/** @type {{x: number, y: number, dx: number, dy: number, speed: number}} */
+	#playerVelocity = {
+		x: 0,
+		y: 0,
+		dx: 0,
+		dy: 0,
+		speed: 5,
+	};
+
+	/** @type {boolean} */ #isMovingLeft = false;
+	/** @type {boolean} */ #isMovingRight = false;
+	/** @type {boolean} */ #isMovingUp = false;
+	/** @type {boolean} */ #isMovingDown = false;
+
+	/**
+	 * @type {number}
+	 * @description Probability of spawning new obstacles each frame (0-1).
+	 * Lower values mean less frequent spawns:
+	 * - 0.001 ≈ 1 spawn every 1000 frames
+	 * - 0.01 ≈ 1 spawn every 100 frames
+	 * - 0.05 ≈ 1 spawn every 20 frames
+	 */
+	#obstacleSpawnRate = 0.009;
 
 	constructor() {
 		super();
 		this.canvasConfig = new CanvasConfig(700, window.innerHeight - 200);
 		this.canvasConfig.initialize();
+		this.#initializeControls();
 	}
 
 	/**
-	 * Generates a grid based on the canvas dimensions
 	 * @private
-	 * @description Creates a grid of cells based on the canvas width and height
+	 * @description Calculates the cell dimension based on the canvas width and total number of columns
 	 * @returns {void}
 	 */
 	#generateGrid() {
-		this.canvasConfig.cellDimension = this.canvasConfig.width / this.totalGridCols; // Dynamically generate this number to get cell width base on the canvas width. And there should be ten cols in a row
-		this.totalNumOfRows = Math.floor(
-			this.canvasConfig.height / this.canvasConfig.cellDimension
-		);
-
-		for (let row = 0; row < this.totalNumOfRows; row += 1) {
-			const currRow = [];
-			for (let col = 0; col < this.canvasConfig.cellDimension; col += 1) {
-				currRow.push({ row, col });
-			}
-			this.#canvasGrid.push(currRow);
-		}
+		this.canvasConfig.cellDimension = this.canvasConfig.width / this.totalGridCols;
 	}
 
 	/**
-	 * Draws grid lines on the canvas
-	 * @private
-	 * @description Draws grid lines to visualize the grid structure
-	 * @returns {void}
-	 */
-	#drawGridLines() {
-		this.canvasConfig.context.clearRect(
-			0,
-			0,
-			this.canvasConfig.width,
-			this.canvasConfig.height
-		);
-		this.canvasConfig.context.fillStyle = "white";
-		this.canvasConfig.context.stroke = "#000000";
-		this.canvasConfig.context.lineWidth = 0.5;
-
-		for (let row = 0; row < this.totalNumOfRows; row += 1) {
-			for (let col = 0; col < this.canvasConfig.cellDimension; col += 1) {
-				/**@description  draws a rectangle that is filled according to the current fill style*/
-				this.canvasConfig.context.fillRect(
-					col * this.canvasConfig.cellDimension,
-					row * this.canvasConfig.cellDimension,
-					this.canvasConfig.cellDimension * this.totalGridCols,
-					this.canvasConfig.cellDimension * this.totalGridCols
-				);
-				this.canvasConfig.context.strokeRect(
-					col * this.canvasConfig.cellDimension,
-					row * this.canvasConfig.cellDimension,
-					this.canvasConfig.cellDimension,
-					this.canvasConfig.cellDimension
-				);
-			}
-		}
-	}
-
-	/**
-	 * Calculates the coordinates position of an item on the grid
-	 * @private
-	 * @description Computes the center coordinates of a cell based on its row and column indices
-	 * @param {number} row - The row index of the cell
-	 * @param {number} col - The column index of the cell
-	 * @returns {{x:number, y:number}} - An object containing the x and y coordinates
-	 */
-	#calculateCoordinatesPosition(row, col) {
-		const x = col * this.canvasConfig.cellDimension + this.canvasConfig.cellDimension / 2;
-		const y = row * this.canvasConfig.cellDimension + this.canvasConfig.cellDimension / 2;
-
-		return {
-			x,
-			y,
-		};
-	}
-
-	/**
-	 * Places the player on the grid
-	 * @description Calculates and places the player on the grid based on their current position
+	 * @description Calculates and places the player on the canvas based on their current position
 	 * @returns {void}
 	 */
 	placePlayer = () => {
-		const { x, y } = this.#calculateCoordinatesPosition(
-			this.playerPosition.row,
-			this.playerPosition.col
-		);
+		const x = this.#playerVelocity.x + this.canvasConfig.cellDimension / 2;
+		const y = this.#playerVelocity.y + this.canvasConfig.cellDimension / 2;
 
-		// Add these font settings
 		this.#placeItemToGrid(this.canvasConfig.cellDimension);
-
 		this.canvasConfig.context.fillText(this.playerCharacter, x, y);
 	};
 
 	/**
-	 * Removes an item from its previous position on the grid
 	 * @description Clears a cell by drawing a rectangle over it
 	 * @param {{row: number, col: number}} dimensions - The dimensions of the cell
 	 * @returns {void}
@@ -130,9 +83,7 @@ class Game extends Player {
 	};
 
 	/**
-	 * Sets the font properties for text rendering
-	 * @private
-	 * @description Configures the canvas context for text rendering with specified dimensions
+	 * @description Sets the font properties for text rendering
 	 * @param {number} dimensions - The dimensions of the cell
 	 * @returns {void}
 	 */
@@ -143,46 +94,32 @@ class Game extends Player {
 	}
 
 	/**
-	 * Initializes the game by setting up the canvas, grid, and placing the player and obstacles
-	 * @description Sets up the game environment and starts the game loop
+	 * @description Initializes the game by setting up the canvas, grid, and placing the player and obstacles
 	 * @returns {void}
 	 */
 	startGame() {
-		// Set Canvas height
 		this.canvasConfig.initialize();
-
-		// Create game grid
 		this.#generateGrid();
-
-		// Uncomment this to draw the grid lines
-		// this.#drawGridLines();
-
-		// Place player and obstacles on the grid
 		this.placePlayer();
 		this.placeObstacleOnGrid();
 
-		// Start the game loop
 		this.gameState.isRunning = true;
-		this.gameState.intervalId = setInterval(() => {
-			this.#moveObstacles();
-		}, 2000);
+		this.#gameLoop();
 	}
 
 	/**
-	 * Generates the number of obstacles per row
 	 * @private
-	 * @description Randomly determines the number of obstacles to be placed in a row
+	 * @description Generates the number of obstacles per row
 	 * @returns {number} - The number of obstacles to be placed in a row
 	 */
 	#generateObstaclesNumberPerRow() {
-		return Math.floor(Math.random() * 4) + 1;
+		return Math.floor(Math.random() * 4);
 	}
 
 	/**
-	 * Generates the positions of obstacles on the grid
 	 * @private
-	 * @description Determines obstacle positions and ensures no overlap
-	 * @returns {Array<{row: number, col: number, obstacle: string}>} - An array of obstacle positions and types
+	 * @description Generates the positions of obstacles on the grid
+	 * @returns {Array<{x: number, y: number, col: number, row: number, obstacle: string, obstacleRowId: string}>}
 	 */
 	generateObstaclePosition() {
 		const totalNumOfObstacles = this.#generateObstaclesNumberPerRow();
@@ -196,13 +133,18 @@ class Game extends Player {
 
 			if (!alreadyTakenPosition.has(col)) {
 				alreadyTakenPosition.add(col);
-
 				const obstacleIdx = Math.floor(Math.random() * this.#obstacles.length);
+
+				// Calculate pixel positions
+				const x = col * this.canvasConfig.cellDimension;
+				const y = this.canvasConfig.height; // Start from bottom of canvas
 
 				obstaclePosition.push({
 					obstacleRowId,
 					row: this.totalNumOfRows,
 					col,
+					x,
+					y,
 					obstacle: this.#obstacles[obstacleIdx],
 				});
 				count += 1;
@@ -212,75 +154,97 @@ class Game extends Player {
 	}
 
 	/**
-	 * Places obstacles on the grid
-	 * @private
-	 * @description Generates obstacle positions and places them on the grid
+	 * @description Places obstacles on the grid
 	 * @returns {void}
 	 */
 	placeObstacleOnGrid() {
 		const obstacles = this.generateObstaclePosition();
-
 		this.#placeItemToGrid(this.canvasConfig.cellDimension);
 
-		obstacles.forEach(({ col, obstacle }) => {
-			const { x, y } = this.#calculateCoordinatesPosition(this.totalNumOfRows, col);
-			this.canvasConfig.context.fillText(obstacle, x, y);
+		obstacles.forEach((obstacle) => {
+			this.canvasConfig.context.fillText(
+				obstacle.obstacle,
+				obstacle.x + this.canvasConfig.cellDimension / 2,
+				obstacle.y + this.canvasConfig.cellDimension / 2
+			);
 		});
-		this.#fallingObstacles.push(obstacles);
+
+		this.#fallingObstacles.push(...obstacles);
 	}
 
 	/**
-	 * Moves obstacles down the grid
-	 * @private
-	 * @description Updates obstacle positions and redraws them on the grid
+	 * @description Moves obstacles up the grid
 	 * @returns {void}
 	 */
 	#moveObstacles() {
+		const moveSpeed = 1; // Adjust this value to change obstacle speed
+
+		// Remove obstacles that have moved off the top of the screen
+		this.#fallingObstacles = this.#fallingObstacles.filter(
+			(obstacle) => obstacle.y > -this.canvasConfig.cellDimension
+		);
+
+		// Move remaining obstacles
 		this.#fallingObstacles.forEach((obstacle) => {
-			obstacle.forEach((item) => {
-				this.removeItemFromPrevPosition({
-					row: item.row,
-					col: item.col,
-				});
+			// Update pixel position
+			obstacle.y -= moveSpeed;
 
-				item.row = item.row - 1;
+			// Update grid position
+			const gridPosition = obstacle.y / this.canvasConfig.cellDimension;
+			obstacle.row = Math.floor(gridPosition);
 
-				const { x, y } = this.#calculateCoordinatesPosition(item.row, item.col);
-
-				// Add these font settings
-				this.#placeItemToGrid(this.canvasConfig.cellDimension);
-
-				this.canvasConfig.context.fillText(item.obstacle, x, y);
-			});
+			// Draw obstacle
+			this.#placeItemToGrid(this.canvasConfig.cellDimension);
+			this.canvasConfig.context.fillText(
+				obstacle.obstacle,
+				obstacle.x + this.canvasConfig.cellDimension / 2,
+				obstacle.y + this.canvasConfig.cellDimension / 2
+			);
 		});
 
-		// After moving all obstacles, place new Obstacles to the grid
-		this.placeObstacleOnGrid();
-		this.playerContactedObstacle();
+		// Generate new obstacles periodically
+		if (Math.random() < this.#obstacleSpawnRate) {
+			this.placeObstacleOnGrid();
+		}
 	}
 
 	/**
-	 * Handles collision detection and scoring for a single obstacle
-	 * @private
-	 * @param {{row: number, col: number, obstacleRowId: string, obstacle: string}} item - The obstacle to check
-	 * @returns {boolean} - Returns true if game should stop, false to continue
+	 * @description Handles collision detection and scoring for a single obstacle
+	 * @param {{x: number, y: number, col: number, row: number, obstacle: string, obstacleRowId: string}} obstacle
+	 * @returns {boolean}
 	 */
-	#handleObstacleCollision(item) {
-		if (item.row !== this.playerPosition.row) {
-			return false;
-		}
+	#handleObstacleCollision(obstacle) {
+		// Calculate the centers of both player and obstacle
+		const playerCenterX = this.#playerVelocity.x + this.canvasConfig.cellDimension / 2;
+		const playerCenterY = this.#playerVelocity.y + this.canvasConfig.cellDimension / 2;
 
-		// Check for direct collision with player
-		if (item.col === this.playerPosition.col) {
+		// Calculate the center of the obstacle
+		const obstacleCenterX = obstacle.x + this.canvasConfig.cellDimension / 2;
+		const obstacleCenterY = obstacle.y + this.canvasConfig.cellDimension / 2;
+
+		// Calculate collision distance
+		const collisionDistance = this.canvasConfig.cellDimension * 0.7; // Slightly smaller than cell size
+
+		// Calculate the distance between the player and the obstacle
+		const x = Math.pow(playerCenterX - obstacleCenterX, 2);
+		const y = Math.pow(playerCenterY - obstacleCenterY, 2);
+
+		const actualDistance = Math.sqrt(x + y);
+
+		// Check for collision
+		if (actualDistance < collisionDistance) {
 			this.gameState.isRunning = false;
-			clearInterval(this.gameState.intervalId);
 			this.updateGameStatus();
 			return true;
 		}
 
-		// Update score if row hasn't been counted yet
-		if (!this.#rowsSeenSet.has(item.obstacleRowId) && this.gameState.isRunning) {
-			this.#rowsSeenSet.add(item.obstacleRowId);
+		// Update score if obstacle passes player
+		if (
+			!this.#rowsSeenSet.has(obstacle.obstacleRowId) &&
+			obstacle.y < this.#playerVelocity.y &&
+			this.gameState.isRunning
+		) {
+			this.#rowsSeenSet.add(obstacle.obstacleRowId);
 			this.gameState.score += 1;
 			this.updateGameScore();
 		}
@@ -289,28 +253,19 @@ class Game extends Player {
 	}
 
 	/**
-	 * Checks if the player has contacted an obstacle
-	 * @description Iterates through falling obstacles to check for player contact
+	 * @description Checks for collisions between player and obstacles
 	 * @returns {void}
 	 */
 	playerContactedObstacle() {
-		for (let i = 0; i < this.#fallingObstacles.length; i++) {
-			const obstacleRow = this.#fallingObstacles[i];
-
-			for (let j = 0; j < obstacleRow.length; j++) {
-				const item = obstacleRow[j];
-				const collided = this.#handleObstacleCollision(item);
-				if (collided) {
-					break;
-				}
+		for (const obstacle of this.#fallingObstacles) {
+			if (this.#handleObstacleCollision(obstacle)) {
+				break;
 			}
 		}
 	}
 
 	/**
-	 * Updates the game status displayed in the DOM
-	 * @private
-	 * @description Changes the text content of the game status element
+	 * @description Updates the game status displayed in the DOM
 	 * @returns {void}
 	 */
 	updateGameStatus() {
@@ -319,31 +274,140 @@ class Game extends Player {
 	}
 
 	/**
-	 * Updates the game score displayed in the DOM
-	 * @private
-	 * @description Changes the text content of the game score element
+	 * @description Updates the game score displayed in the DOM
 	 * @returns {void}
 	 */
 	updateGameScore() {
 		const gameScoreText = document.getElementById("game-score");
 		gameScoreText.textContent = this.gameState.score;
 	}
+
+	/**
+	 * @description The main game loop
+	 * @returns {void}
+	 */
+	#gameLoop = () => {
+		if (!this.gameState.isRunning) return;
+
+		// Clear the canvas
+		this.canvasConfig.context.clearRect(
+			0,
+			0,
+			this.canvasConfig.width,
+			this.canvasConfig.height
+		);
+
+		this.#handlePlayerMovement();
+		this.#moveObstacles();
+		this.placePlayer(); // Draw player last so it appears on top
+		this.playerContactedObstacle();
+
+		// Request the next frame
+		requestAnimationFrame(this.#gameLoop);
+	};
+
+	/**
+	 * @description Updates the player's position based on their velocity
+	 * @returns {void}
+	 */
+	#handlePlayerMovement() {
+		// Update position based on velocity
+		this.#playerVelocity.x += this.#playerVelocity.dx;
+		this.#playerVelocity.y += this.#playerVelocity.dy;
+
+		// Apply friction
+		this.#playerVelocity.dx *= 0.9;
+		this.#playerVelocity.dy *= 0.9;
+
+		// Convert pixel position to grid position
+		const col = Math.floor(this.#playerVelocity.x / this.canvasConfig.cellDimension);
+		const row = Math.floor(this.#playerVelocity.y / this.canvasConfig.cellDimension);
+
+		this.playerPosition.col = col;
+		this.playerPosition.row = row;
+
+		// Boundary checks for horizontal movement
+		if (this.#playerVelocity.x < 0) {
+			this.#playerVelocity.x = 0;
+			this.#playerVelocity.dx = 0;
+		}
+
+		const maxHorizontalPosition = (this.totalGridCols - 1) * this.canvasConfig.cellDimension;
+		if (this.#playerVelocity.x > maxHorizontalPosition) {
+			this.#playerVelocity.x = maxHorizontalPosition;
+			this.#playerVelocity.dx = 0;
+		}
+
+		// Boundary checks for vertical movement
+		if (this.#playerVelocity.y < 0) {
+			this.#playerVelocity.y = 0;
+			this.#playerVelocity.dy = 0;
+		}
+
+		const maxVerticalPosition = (this.totalNumOfRows - 1) * this.canvasConfig.cellDimension;
+
+		if (this.#playerVelocity.y > maxVerticalPosition) {
+			this.#playerVelocity.y = maxVerticalPosition;
+			this.#playerVelocity.dy = 0;
+		}
+	}
+
+	#initializeControls() {
+		document.addEventListener("keydown", (event) => {
+			if (!this.gameState.isRunning) return;
+
+			switch (event.key) {
+				case "ArrowLeft":
+					this.#isMovingLeft = true;
+					this.#playerVelocity.dx = -this.#playerVelocity.speed;
+					break;
+				case "ArrowRight":
+					this.#isMovingRight = true;
+					this.#playerVelocity.dx = this.#playerVelocity.speed;
+					break;
+				case "ArrowUp":
+					this.#isMovingUp = true;
+					this.#playerVelocity.dy = -this.#playerVelocity.speed;
+					break;
+				case "ArrowDown":
+					this.#isMovingDown = true;
+					this.#playerVelocity.dy = this.#playerVelocity.speed;
+					break;
+			}
+		});
+
+		document.addEventListener("keyup", (event) => {
+			switch (event.key) {
+				case "ArrowLeft":
+					this.#isMovingLeft = false;
+					if (!this.#isMovingRight) {
+						this.#playerVelocity.dx = 0;
+					}
+					break;
+				case "ArrowRight":
+					this.#isMovingRight = false;
+					if (!this.#isMovingLeft) {
+						this.#playerVelocity.dx = 0;
+					}
+					break;
+				case "ArrowUp":
+					this.#isMovingUp = false;
+					if (!this.#isMovingDown) {
+						this.#playerVelocity.dy = 0;
+					}
+					break;
+				case "ArrowDown":
+					this.#isMovingDown = false;
+					if (!this.#isMovingUp) {
+						this.#playerVelocity.dy = 0;
+					}
+					break;
+			}
+		});
+	}
 	// --- END OF CLASS ---
 }
 
+// Initialize and start the game
 const game = new Game();
-
 game.startGame();
-
-document.addEventListener("keydown", (event) => {
-	if (game.gameState.isRunning) {
-		game.movePlayer(event, {
-			totalNumOfRows: game.totalNumOfRows,
-			placePlayer: game.placePlayer,
-			removePlayerFromPrevPosition: game.removeItemFromPrevPosition,
-			totalGridCols: game.totalGridCols - 1,
-		});
-
-		game.playerContactedObstacle();
-	}
-});
